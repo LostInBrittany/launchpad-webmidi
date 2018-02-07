@@ -1,8 +1,275 @@
-import * as brightnessSteps from './lib/brightness.js';
-import { Buttons } from './lib/button-list.js';
-import * as buttons from './lib/buttons.js';
-import * as colors from './lib/colors.js';
+/*
+ Launchpad describes brightness levels as a “duty cycle” fraction described by
+ f = num/den. num is a number between 1 and 16, den is a number between 3 and 18.
+ */
 
+const num = (new Array( 16 )).fill( 0 ).map( ( el, ix ) => ix + 1 );
+const den = (new Array( 16 )).fill( 0 ).map( ( el, ix ) => ix + 3 );
+
+let arr = num.map( nu => den.map( de => [ nu, de ] ) )
+    .reduce( ( acc, cur ) => acc.concat( cur ), [] )
+    .filter( pair => pair[ 0 ] <= pair[ 1 ] ) // Remove all numbers where the fraction is > 1
+    .map( pair => [ pair[ 0 ], pair[ 1 ], pair[ 0 ] / pair[ 1 ] ] ) // now contains all [ num, den, f ] pairs
+    .sort( ( a, b ) => a[ 2 ] - b[ 2 ] ) // Sort by size
+    .filter( ( el, ix, arr ) => !(ix > 0 && arr[ ix - 1 ][ 2 ] === el[ 2 ]) ); // Remove all duplicates
+
+/**
+ * This method finds the best duty cycle match for the given brightness.
+ * @param {Number} t Brightness level between 0 and 1
+ * @returns {Array.<Number>} Array [ numerator, denominator, fraction ]
+ */
+const getNumDen = function ( t ) {
+    return arr[ Math.min( arr.length - 1, Math.max( 0, Math.round( t * arr.length ) ) ) ];
+};
+
+/**
+ * All Launchpad buttons
+ * @type {Array.<Number>}
+ */
+const All = (new Array( 80 )).fill( 0 )
+    .map( ( empty, ix ) => [ ix % 9, (ix - ix % 9) / 9 ] )
+    .map( ( xy ) => {
+        xy.id = Symbol();
+        return xy;
+    } );
+/**
+ * Grid buttons (8×8 square buttons)
+ * @type {Array.<Number>}
+ */
+const Grid = All.filter( ( xy ) => xy[ 0 ] < 8 && xy[ 1 ] < 8 );
+/**
+ * Automap buttons (top row of round buttons)
+ * @type {Array.<Number>}
+ */
+const Automap = All.filter( ( xy ) => xy[ 1 ] === 8 );
+/**
+ * Scene buttons (right row of round buttons)
+ * @type {Array.<Number>}
+ */
+const Scene = All.filter( ( xy ) => xy[ 0 ] === 8 );
+
+const mapById = new Map();
+All.forEach( b => mapById.set( b.id, b ) );
+
+const byId = ( id ) => {
+    return mapById.get( id );
+};
+
+const byXy = ( x, y ) => {
+    return All[ 9 * y + x ];
+};
+
+const Buttons = {
+    All,
+    Grid,
+    Automap,
+    Scene,
+    byId,
+    byXy
+};
+
+const numbersFromCoords = function ( buttons ) {
+    return Array.prototype.map.call( buttons || [], ( b, ix ) => ({
+        select: b === 'x' || b === 'X',
+        ix: ix === 0 ? 8 : ix - 1
+    }) )
+        .filter( b => b.select )
+        .map( b => b.ix );
+};
+
+const asRow = function ( row, cols ) {
+    return cols.map( col => [ row, col ] );
+};
+const asCol = function ( col, rows ) {
+    return rows.map( row => [ row, col ] );
+};
+
+/**
+ * Convert a modifier to data. A modifier is a human-readable string describing a button row or column
+ * on the launchpad; see the description of the modifier parameter below.
+ * @param {String} modifier Can be 'sc' for Scene buttons, 'am' for Automap buttons, 'rX' for row number X,
+ * or 'cX' for column number X
+ * @returns {{row:Boolean, nr:Number}|{error:Boolean}}
+ */
+const decodeModifier = function ( modifier ) {
+    let mod = (modifier || '').toLowerCase(),
+        nr = Number( mod[ 1 ] );
+    if ( mod === 'sc' ) {
+        return { row: true, nr: 8 };
+    } else if ( mod === 'am' ) {
+        return { row: false, nr: 8 };
+    }
+    if ( !isNaN( nr ) ) {
+        if ( mod[ 0 ] === 'r' ) {
+            return { row: true, nr: Number( mod[ 1 ] ) };
+        } else if ( mod[ 0 ] === 'c' ) {
+            return { row: false, nr: Number( mod[ 1 ] ) };
+        }
+    }
+    return { error: true };
+};
+
+/**
+ * Higher-order function which returns a function for the given modifier. The returned function takes a button number
+ * and returns the button coordinates; the first part of the coordinate is given by the modifier, the second one
+ * by the number(s) following it. For example, 'r4 1 2' describes buttons 1 and 2 on row 4; the function returns
+ * those coordinates.
+ * @param {String} modifier See #decodeModifier
+ * @returns {function(Array.<Number>):Array.<Number>} This function takes a number and returns a button.
+ */
+const getDecoder = function ( modifier ) {
+    let mod = decodeModifier( modifier );
+    return mod.err ? () => [] : mod.row ? asRow.bind( null, mod.nr ) : asCol.bind( null, mod.nr )
+};
+
+/**
+ * Returns a copy of the input array which is sorted and without duplicates.
+ * @param {Array.<Number>} coords
+ * @returns {Array.<Number>}
+ */
+const uniqueCoords = function ( coords ) {
+    return coords.sort( ( a, b ) => {
+        if ( a[ 0 ] !== b[ 0 ] ) {
+            return a[ 0 ] - b[ 0 ];
+        }
+        return a[ 1 ] - b[ 1 ];
+    } ).filter( ( el, ix, arr ) => {
+        return ix === 0 || !(
+            el[ 0 ] === arr[ ix - 1 ][ 0 ] &&
+            el[ 1 ] === arr[ ix - 1 ][ 1 ]
+        );
+    } );
+};
+
+/**
+ * Converts a string describing a row or column to button coordinates.
+ * @param {String} pattern String format is 'mod:pattern', with *mod* being
+ * one of rN (row N, e.g. r4), cN (column N), am (automap), sc (scene). *pattern* are buttons from 0 to 8, where an 'x' or 'X'
+ * marks the button as selected, and any other character is ignored; for example: 'x..xx' or 'X  XX'.
+ */
+const decodeString = function ( pattern ) {
+    pattern = pattern || '';
+    return getDecoder( pattern.substring( 0, 2 ) )( numbersFromCoords( pattern.substring( 2 ) ) );
+};
+
+/**
+ * @param {Array.<Array.<Number>>} arrays
+ * @returns {Array.<Number>}
+ */
+const mergeArray = function ( arrays ) {
+    return arrays.reduce( ( acc, cur ) => acc.concat( cur ), [] );
+};
+
+/**
+ * Like decodeString(), but for an array of patterns.
+ * @param {Array.<String>} patterns
+ * @returns {Array.<Number>}
+ */
+const decodeStrings = function ( patterns ) {
+    return uniqueCoords( mergeArray( patterns.map( decodeString ) ) );
+};
+
+class Color {
+
+    constructor( level, clear, copy, name ) {
+        this._level = level;
+        this._clear = clear;
+        this._copy = copy;
+        this._name = name;
+        return this;
+    }
+
+    /**
+     * Turn off LEDs.
+     * @return {Color}
+     */
+    get off() {
+        return this.level( 0 );
+    }
+
+    /**
+     * Low brightness
+     * @return {Color}
+     */
+    get low() {
+        return this.level( 1 );
+    }
+
+    /**
+     * Medium brightness
+     * @return {Color}
+     */
+    get medium() {
+        return this.level( 2 );
+    }
+
+    /**
+     * Full brightness
+     * @return {Color}
+     */
+    get full() {
+        return this.level( 3 );
+    }
+
+    /**
+     * Set a numeric brightness level for this color.
+     * @param {Number} n Level between 0 and 3
+     * @return {Color}
+     */
+    level( n ) {
+        return new Color( Math.min( 3, Math.max( 0, Math.round( n ) ) ), this._clear, this._copy, this._name );
+    }
+
+    /**
+     * For the other buffer, turn the LED off.
+     *
+     * If neither clear nor copy are set, the other buffer will not be modified.
+     * @return {Color}
+     */
+    get clear() {
+        return new Color( this._level, true, this._copy, this._name );
+    }
+
+    /**
+     * For the other buffer, use the same color.
+     * This overrides the `clear` bit.
+     *
+     * If neither clear nor copy are set, the other buffer will not be modified.
+     * @return {Color}
+     */
+    get copy() {
+        return new Color( this._level, this._clear, true, this._name );
+    }
+
+    /**
+     * @return {Number} MIDI code of this color
+     */
+    get code() {
+        let r = this._level * (this._name === 'red' || this._name === 'amber'),
+            g = this._level * (this._name === 'green' || this._name === 'amber');
+        if ( this._name === 'yellow' && this._level > 0 ) {
+            r = 2;
+            g = 3;
+        }
+        return (
+            0b10000 * g +
+            0b01000 * this._clear +
+            0b00100 * this._copy +
+            0b00001 * r
+        );
+    }
+}
+
+/** @type {Color} */
+const red = new Color( 3, false, false, 'red' );
+/** @type {Color} */
+const green = new Color( 3, false, false, 'green' );
+/** @type {Color} */
+const amber = new Color( 3, false, false, 'amber' );
+/** @type {Color} */
+const yellow = new Color( 3, false, false, 'yellow' );
+/** @type {Color} */
+const off = new Color( 3, false, false, 'off' );
 
 class Observable {
     constructor() {
@@ -22,7 +289,7 @@ class Observable {
     }
 }
 
-export default class Launchpad extends Observable {
+class Launchpad extends Observable {
     constructor() {
         super();
 
@@ -53,19 +320,19 @@ export default class Launchpad extends Observable {
         this._flashing = false;
 
         /** @type {Color} */
-        this.red = colors.red;
+        this.red = red;
         /** @type {Color} */
-        this.green = colors.green;
+        this.green = green;
         /** @type {Color} */
-        this.amber = colors.amber;
+        this.amber = amber;
         /**
          * Due to limitations in LED levels, only full brightness is available for yellow,
          * the other modifier versions have no effect.
          * @type {Color}
          */
-        this.yellow = colors.yellow;
+        this.yellow = yellow;
         /** @type {Color} */
-        this.off = colors.off;
+        this.off = off;
 
         return this;    
     }
@@ -120,7 +387,7 @@ export default class Launchpad extends Observable {
      */
     reset( brightness ) {
         brightness = brightness > 0 && brightness <= 3 ? brightness + 0x7c : 0;
-        this.sendRaw( [ 0xb0, 0x00, brightness ] )
+        this.sendRaw( [ 0xb0, 0x00, brightness ] );
     }
 
     sendRaw( data ) {
@@ -272,7 +539,7 @@ export default class Launchpad extends Observable {
      * @param {Number} brightness Brightness between 0 (dark) and 1 (bright)
      */
     brightness( brightness ) {
-        this.multiplexing.apply( this, brightnessSteps.getNumDen( brightness ) );
+        this.multiplexing.apply( this, getNumDen( brightness ) );
     }
 
     /**
@@ -306,9 +573,9 @@ export default class Launchpad extends Observable {
      */
     fromPattern( pattern ) {
         if ( pattern instanceof Array ) {
-            return buttons.decodeStrings( pattern );
+            return decodeStrings( pattern );
         }
-        return buttons.decodeString( pattern )
+        return decodeString( pattern )
             .map( xy => Buttons.byXy( xy[ 0 ], xy[ 1 ] ) );
     }
 
@@ -363,42 +630,4 @@ class MidiAdapter {
     }
 }
 
-class MidiAdapterFactory {
-    constructor(name) {
-        this.name = name;
-    }
-
-    connect() {
-        return (res,rej) => {
-            if (!navigator.requestMIDIAccess){
-                rej(`Browser doesn't seem to support Web MIDI API`);
-            } else {
-                navigator.requestMIDIAccess()
-                    .then((midiAccess) => {
-                        return {
-                            'input': this.extractLaunchpadIO(midiAccess.inputs.values()),
-                            'output': this.extractLaunchpadIO(midiAccess.outputs.values())
-                        }
-                    })
-                    .then((io) => {                        
-                        res(new MidiAdapter(io.input, io.output));
-                    })
-                    .catch(rej);
-            }
-        }
-    }
-
-    extractLaunchpadIO(items) {
-        var item = items.next();
-        while (!item.done) {
-            if (item.value.name.indexOf(this.name) >= 0) {
-                return item.value;
-            }
-            item = items.next();
-        }
-        return undefined;
-    }
-
-}
-
-
+export default Launchpad;

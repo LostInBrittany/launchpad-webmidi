@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Launchpad WebMIDI test</title>
+</head>
+
+<body>
+    <h1>Basic demo of <i>launchpad-webmidi</i> using UMD.</h1>
+    <p>Launchpad status: <span id='status'></span></p>
+
+    <script src='../dist/launchpad-webmidi.umd.js'></script>
+    <script>
+        document.querySelector('#status').innerHTML = 'Not connected';
+
+        let pad = new Launchpad();
+        pad.connect().then(() => {     // Auto-detect Launchpad
+            document.querySelector('#status').innerHTML = 'Connected';
+            pad.reset(2);             // Make Launchpad glow yellow
+            pad.on('key', k => {
+                console.log(`Key ${k.x},${k.y} down: ${k.pressed}`, k);
+                // Make button red while pressed, green after pressing
+                pad.col(k.pressed ? pad.red : pad.green, k);
+            });
+        });
+    </script>
+</body>
+
+</html>
