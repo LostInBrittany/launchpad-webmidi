@@ -1,0 +1,9 @@
+{
+  "name": "launchpad-webmidi",
+  "version": "1.0.0",
+  "description": "Interacting with a Novation Launchpad from your browser with the web MIDI API",
+  "main": "launchpad-webmidi.js",
+  "repository": "git@github.com:LostInBrittany/launchpad-webmidi.git",
+  "author": "Horacio Gonzalez <horacio.gonzalez@gmail.com>",
+  "license": "MIT"
+}

@@ -1,0 +1,21 @@
+<html>
+    <head>
+        <title>Launchpad WebMIDI test</title>
+    </head>
+    <body>
+        <script type="module">
+            import {Launchpad} from './launchpad-webmidi.js';
+
+            let pad = new Launchpad();
+            pad.connect().then( () => {     // Auto-detect Launchpad
+                console.log('YEAH')
+                pad.reset( 2 );             // Make Launchpad glow yellow
+                pad.on( 'key', k => {
+                    console.log( `Key ${k.x},${k.y} down: ${k.pressed}`, k);
+                    // Make button red while pressed, green after pressing
+                    pad.col( k.pressed ? pad.red : pad.green, k );
+                } );
+            });
+        </script>
+    </body>
+</html>

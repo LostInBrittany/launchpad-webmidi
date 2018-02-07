@@ -4,16 +4,33 @@
     </head>
     <body>
         <script type="module">
-            import {Launchpad} from './launchpad.js';
+            import {Launchpad} from './launchpad-webmidi.js';
 
             let pad = new Launchpad();
+            console.log();
+            let padMap = Array(8);
+            [...padMap.keys()].forEach( (i) => {
+                padMap[i] = Array(8);
+                [...padMap[i].keys()].forEach( (j) => {
+                    padMap[i][j] = pad.amber;
+                });
+            });
+            console.log(padMap);
+
+            function switchColor(x,y) {
+                padMap[x][y] = (padMap[x][y]._name === pad.green._name) ? pad.red : pad.green;
+                console.log('New color', padMap[x][y]);
+                return padMap[x][y];
+            }
+
             pad.connect().then( () => {     // Auto-detect Launchpad
                 console.log('YEAH')
                 pad.reset( 2 );             // Make Launchpad glow yellow
                 pad.on( 'key', k => {
                     console.log( `Key ${k.x},${k.y} down: ${k.pressed}`, k);
                     // Make button red while pressed, green after pressing
-                    pad.col( k.pressed ? pad.red : pad.green, k );
+                    
+                    pad.col( k.pressed ? pad.amber : switchColor(k.x, k.y), k );
                 } );
             });
         </script>
