@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Launchpad WebMIDI test</title>
+    <script type="module">
+        import Launchpad from '../dist/launchpad-webmidi.es.js';
+
+        document.querySelector('#status').innerHTML = 'Not connected';
+
+        let pad = new Launchpad();
+
+        // Creating a map to store current color of every switch
+        let padMap = Array(9);
+        [...padMap.keys()].forEach( (i) => {
+            padMap[i] = Array(9);
+            [...padMap[i].keys()].forEach( (j) => {
+                padMap[i][j] = pad.amber;
+            });
+        });
+        console.log('Initial color of every switch',padMap);
+
+        function switchColor(x,y) {
+            padMap[x][y] = (padMap[x][y]._name === pad.green._name) ? pad.red : pad.green;
+            console.log(`New color for switch ${x},${y}`, padMap[x][y]);
+            return padMap[x][y];
+        }
+            
+        pad.connect().then(() => {     // Auto-detect Launchpad
+            document.querySelector('#status').innerHTML = 'Connected';
+            pad.reset( 2 );             // Make Launchpad glow yellow
+            pad.on( 'key', k => {
+                console.log( `Key ${k.x},${k.y} down: ${k.pressed}`, k);
+                // Make button red while pressed, green after pressing
+                
+                pad.col( k.pressed ? pad.amber : switchColor(k.x, k.y), k );
+            } );
+        });
+    </script>
+</head>
+
+<body>
+    <h1>Color swtiching demo of <i>launchpad-webmidi</i> using ES Modules.</h1>
+    <p>Launchpad status: <span id='status'></span></p>
+</body>
+
+</html>

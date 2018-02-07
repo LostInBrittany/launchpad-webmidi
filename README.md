@@ -3,7 +3,7 @@
 Interacting with a Novation Launchpad from your browser with the [web MIDI API](https://webaudio.github.io/web-midi-api/).
 
 This library is based on [launchpad-mini](https://github.com/Granjow/launchpad-mini/) library for Node.
-Node modules have been replaced with ES modules, Node midi replaced with Web MIDI API, and the connection workflow has been adapted, but most of the original library API works as usual.
+Node modules have been replaced with ES modules, Node midi replaced with Web MIDI API, and the connection workflow has been adapted, but most of the original library API works as usual. You can use [launchpad-mini](https://github.com/Granjow/launchpad-mini/) doc as a guid euntil the doc here will be completed.
 
 
 ## Installation
@@ -56,7 +56,7 @@ You can use the version you prefer in your app, we suggest using the ES module i
 </script>
 ```
 
-You can see the full example in [examples/basic-with-esm.html](examples/basic-with-esm.html).
+You can see the full example in [examples/basic-with-esm.html](examples/basic-with-esm.html) and a slightly more complex one on [examples/switch-color-with-esm.html](examples/switch-color-with-esm.html).
 
 ### Example using UMD
 
@@ -76,4 +76,9 @@ You can see the full example in [examples/basic-with-esm.html](examples/basic-wi
 </script>
 ```
 
-You can see the full example in [examples/basic-with-umd.html](examples/basic-with-umd.html).
+You can see the full example in [examples/basic-with-umd.html](examples/basic-with-umd.html) and a slightly more complex one on [examples/switch-color-with-umd.html](examples/switch-color-with-umd.html).
+
+
+## License
+
+[MIT License](http://opensource.org/licenses/MIT)
