@@ -3,7 +3,7 @@
 Interacting with a Novation Launchpad from your browser with the [web MIDI API](https://webaudio.github.io/web-midi-api/).
 
 This library is based on [launchpad-mini](https://github.com/Granjow/launchpad-mini/) library for Node.
-Node modules have been replaced with ES modules, Node midi replaced with Web MIDI API, and the connection workflow has been adapted, but most of the original library API works as usual. You can use [launchpad-mini](https://github.com/Granjow/launchpad-mini/) doc as a guid euntil the doc here will be completed.
+Node modules have been replaced with ES modules, Node midi replaced with Web MIDI API, and the connection workflow has been adapted, but most of the original library API works as usual. You can use [launchpad-mini](https://github.com/Granjow/launchpad-mini/) doc as a guide until the doc here will be completed.
 
 
 ## Installation
