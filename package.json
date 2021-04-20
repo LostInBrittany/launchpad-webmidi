@@ -4,7 +4,13 @@
   "description": "Interacting with a Novation Launchpad from your browser with the web MIDI API",
   "main": "dist/launchpad-webmidi.umd.js",
   "module": "dist/launchpad-webmidi.es.js",
+  "scripts": {
+    "build": "rollup -c"
+  },
   "repository": "git@github.com:LostInBrittany/launchpad-webmidi.git",
   "author": "Horacio Gonzalez <horacio.gonzalez@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "rollup": "^2.45.2"
+  }
 }

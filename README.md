@@ -8,22 +8,17 @@ Node modules have been replaced with ES modules, Node midi replaced with Web MID
 
 ## Installation
 
-- Install via [`bower`](https://bower.io/):
-
-  ```bash
-  bower install --save LostInBrittany/launchpad-webmidi
-  ```
 
 - Install via [`yarn`](https://yarnpkg.com/):
 
   ```bash
-  yarn add https://github.com/LostInBrittany/launchpad-webmidi.git
+  yarn add launchpad-webmidi
   ```
 
 - Install via [`npm`](https://www.npmjs.com/):
 
   ```bash
-  npm install --save git+https://git@github.com/LostInBrittany/launchpad-webmidi.git
+  npm install launchpad-webmidi
   ```
 
 ## Usage
