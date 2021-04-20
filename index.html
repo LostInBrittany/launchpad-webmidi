@@ -4,7 +4,7 @@
     </head>
     <body>
         <script type="module">
-            import {Launchpad} from './launchpad-webmidi.js';
+            import Launchpad from './launchpad-webmidi.js';
 
             let pad = new Launchpad();
             console.log();
@@ -18,7 +18,20 @@
             console.log(padMap);
 
             function switchColor(x,y) {
-                padMap[x][y] = (padMap[x][y]._name === pad.green._name) ? pad.red : pad.green;
+                switch (padMap[x][y]._name) {
+                    case pad.green._name:
+                        padMap[x][y] = pad.red;
+                        break;
+                    case pad.red._name:
+                        padMap[x][y] = pad.amber;
+                        break;
+                    case pad.amber._name:
+                        padMap[x][y] = pad.green;
+                        break;
+                    
+                }
+
+                // padMap[x][y] = (padMap[x][y]._name === pad.green._name) ? pad.red : pad.green;
                 console.log('New color', padMap[x][y]);
                 return padMap[x][y];
             }
