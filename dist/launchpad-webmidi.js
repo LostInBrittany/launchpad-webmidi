@@ -635,4 +635,4 @@ var Launchpad = (function () {
 
     return Launchpad;
 
-}());
+})();

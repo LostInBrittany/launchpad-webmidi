@@ -2,7 +2,7 @@
     typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
     typeof define === 'function' && define.amd ? define(factory) :
     (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Launchpad = factory());
-}(this, (function () { 'use strict';
+})(this, (function () { 'use strict';
 
     /*
      Launchpad describes brightness levels as a “duty cycle” fraction described by
@@ -638,4 +638,4 @@
 
     return Launchpad;
 
-})));
+}));

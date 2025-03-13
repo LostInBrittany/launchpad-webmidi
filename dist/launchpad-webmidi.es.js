@@ -630,4 +630,4 @@ class MidiAdapter {
     }
 }
 
-export default Launchpad;
+export { Launchpad as default };
