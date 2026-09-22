@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] – 2026-09-22
+
+### Changed
+
+- **Breaking.** `fromPattern()` now returns what its modifiers say. `rN`
+  selects row N and `cN` selects column N; previously they were swapped, so
+  `fromPattern('r4:xxx')` returned column 4. Scene (`sc`) and Automap (`am`)
+  patterns are unaffected and return exactly what they did before.
+
+  The cause was two inversions that cancelled out for `sc` and `am` only:
+  `asRow()` and `asCol()` both fixed the *first* coordinate, and
+  `decodeModifier()` labelled Scene as a row (it is the `x = 8` column) and
+  Automap as a column (it is the `y = 8` row).
+  ([#15](https://github.com/LostInBrittany/launchpad-webmidi/issues/15))
+
+- **Breaking.** `fromPattern()` returns the same type for both input forms.
+  Given an array of patterns it previously returned raw coordinate pairs,
+  skipping the lookup the single-string form applied, so the results carried no
+  button id. Both forms now return resolved buttons.
+  ([#16](https://github.com/LostInBrittany/launchpad-webmidi/issues/16))
+
+- **Breaking, internal.** `asRow()`, `asCol()` and `decodeString()` in
+  `lib/buttons.js` now emit `[x, y]` pairs consistently. These are not part of
+  the public API – the package exports only the `Launchpad` class – but anyone
+  reaching into the source will see the change.
+
+### Fixed
+
+- `fromPattern()` drops the non-existent `(8, 8)` corner instead of returning
+  an `undefined` entry. `'scx'` and similar patterns could address it.
+
+### Migrating from 1.3.0
+
+If you use `fromPattern()` with `rN` or `cN`, swap them, or delete a workaround
+if you had one:
+
+```js
+// Before 2.0.0, to light the top row:
+pad.col(pad.red, pad.fromPattern('c0:xxxxxxxx'));
+
+// From 2.0.0:
+pad.col(pad.red, pad.fromPattern('r0:xxxxxxxx'));
+```
+
+`sc` and `am` patterns, `fromMap()`, and everything else need no changes.
+
 ## [1.3.0] – 2026-09-22
 
 ### Fixed
@@ -49,8 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A working test suite. The three specs inherited from `launchpad-mini` could
   never run – CommonJS `require()` against ESM modules in a `"type": "module"`
   package, with jasmine undeclared and no `test` script. Replaced with Node's
-  built-in runner: `npm test` runs 109 tests, with no new dependencies. Four
-  are marked `todo` and assert the behaviour the 2.0.0 fixes will deliver.
+  built-in runner: `npm test` runs the suite with no new dependencies.
 - `dist/launchpad-webmidi.umd.cjs`, for `require()`. The existing
   `dist/launchpad-webmidi.umd.js` is unchanged, so `<script src>` and CDN links
   keep working.
@@ -66,14 +111,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#13](https://github.com/LostInBrittany/launchpad-webmidi/issues/13))
 - The scratch `index.html` at the repository root, superseded by `examples/`.
   ([#14](https://github.com/LostInBrittany/launchpad-webmidi/issues/14))
-
-### Known issues
-
-`fromPattern()` still mixes up rows and columns, and returns a different shape
-for a string than for an array. Both fixes change public behaviour and are
-scheduled for 2.0.0
-([#15](https://github.com/LostInBrittany/launchpad-webmidi/issues/15),
-[#16](https://github.com/LostInBrittany/launchpad-webmidi/issues/16)).
 
 ## [1.2.1] – 2026-09-22
 
@@ -131,7 +168,8 @@ unaffected.
 - Rollup builds in three formats: ES module, UMD and IIFE.
 - Runnable examples for both the ES module and UMD builds.
 
-[Unreleased]: https://github.com/LostInBrittany/launchpad-webmidi/compare/1.3.0...HEAD
+[Unreleased]: https://github.com/LostInBrittany/launchpad-webmidi/compare/2.0.0...HEAD
+[2.0.0]: https://github.com/LostInBrittany/launchpad-webmidi/compare/1.3.0...2.0.0
 [1.3.0]: https://github.com/LostInBrittany/launchpad-webmidi/compare/1.2.1...1.3.0
 [1.2.1]: https://github.com/LostInBrittany/launchpad-webmidi/compare/190b917...1.2.1
 [1.2.0]: https://github.com/LostInBrittany/launchpad-webmidi/compare/8118867...190b917

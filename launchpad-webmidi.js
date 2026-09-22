@@ -325,11 +325,14 @@ export default class Launchpad extends Observable {
      * and any other character is ignored; for example: 'x..xx' or 'X  XX'.
      */
     fromPattern( pattern ) {
-        if ( pattern instanceof Array ) {
-            return buttons.decodeStrings( pattern );
-        }
-        return buttons.decodeString( pattern )
-            .map( xy => Buttons.byXy( xy[ 0 ], xy[ 1 ] ) );
+        let coords = pattern instanceof Array
+            ? buttons.decodeStrings( pattern )
+            : buttons.decodeString( pattern );
+
+        return coords
+            .map( xy => Buttons.byXy( xy[ 0 ], xy[ 1 ] ) )
+            // 'scx' and the like can address (8,8), which has no button.
+            .filter( button => button !== undefined );
     }
 
     /**

@@ -1,6 +1,6 @@
 {
   "name": "launchpad-webmidi",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "Interacting with a Novation Launchpad from your browser with the web MIDI API",
   "type": "module",
   "main": "dist/launchpad-webmidi.umd.cjs",

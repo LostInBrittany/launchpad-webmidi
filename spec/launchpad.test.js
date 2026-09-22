@@ -444,31 +444,65 @@ describe('quiet by default', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// Known defects, scheduled for 2.0.0 because the fixes change public
-// behaviour. See issues #15 and #16.
-// ---------------------------------------------------------------------------
+describe('fromPattern', () => {
+    test('selects the requested row', () => {
+        const row = pad.fromPattern('r4:xxx');
+        assert.equal(row.length, 3);
+        for (const [, y] of row) {
+            assert.equal(y, 4);
+        }
+    });
 
-describe('known defects', () => {
-    test('fromPattern selects the requested row',
-        { todo: 'rN decodes to a column; see issue #15' },
-        () => {
-            const row = pad.fromPattern('r4:xxx');
-            for (const [, y] of row) {
-                assert.equal(y, 4);
-            }
-        });
+    test('selects the requested column', () => {
+        const col = pad.fromPattern('c4:xxx');
+        assert.equal(col.length, 3);
+        for (const [x] of col) {
+            assert.equal(x, 4);
+        }
+    });
 
-    test('fromPattern returns the same shape for a string and an array',
-        { todo: 'the array branch skips the byXy lookup; see issue #16' },
-        () => {
-            // Both branches yield the same numbers, so comparing coordinates
-            // proves nothing. The difference is the type: the string branch
-            // resolves through byXy and carries a button id.
-            const single = pad.fromPattern('r4:xxx');
-            const asArray = pad.fromPattern(['r4:xxx']);
+    test('selects scene buttons as a column', () => {
+        for (const [x] of pad.fromPattern('sc:..xx')) {
+            assert.equal(x, 8);
+        }
+    });
 
-            assert.equal(typeof single[0].id, 'symbol', 'string branch should resolve buttons');
-            assert.equal(typeof asArray[0].id, 'symbol', 'array branch should resolve buttons too');
-        });
+    test('selects automap buttons as a row', () => {
+        for (const [, y] of pad.fromPattern('am:..x.x')) {
+            assert.equal(y, 8);
+        }
+    });
+
+    test('returns the same shape for a string and an array', () => {
+        const single = pad.fromPattern('r4:xxx');
+        const asArray = pad.fromPattern(['r4:xxx']);
+
+        assert.equal(typeof single[0].id, 'symbol', 'string branch resolves buttons');
+        assert.equal(typeof asArray[0].id, 'symbol', 'array branch resolves buttons');
+        assert.deepEqual(
+            asArray.map(([x, y]) => [x, y]),
+            single.map(([x, y]) => [x, y])
+        );
+    });
+
+    test('merges several patterns when given an array', () => {
+        const merged = pad.fromPattern(['r0:xx', 'c0:xx']);
+        const coords = merged.map(([x, y]) => `${x},${y}`).sort();
+        assert.deepEqual(coords, ['0,0', '0,1', '1,0']);
+    });
+
+    test('drops the non-existent (8,8) corner', () => {
+        for (const button of pad.fromPattern('scx')) {
+            assert.notEqual(button, undefined);
+        }
+    });
+
+    test('selects nothing for an invalid modifier', () => {
+        assert.deepEqual(pad.fromPattern('zz:xx'), []);
+    });
+
+    test('results can be passed straight to col()', async () => {
+        await pad.col(pad.red, pad.fromPattern('r0:xx'));
+        assert.equal(out.sent.length, 2);
+    });
 });

@@ -83,11 +83,24 @@
             .map( b => b.ix );
     };
 
+    /**
+     * Buttons along a row: y is fixed, x varies.
+     * @param {Number} row The y coordinate
+     * @param {Array.<Number>} cols x coordinates to select
+     * @returns {Array.<Array.<Number>>} [x,y] pairs
+     */
     const asRow = function ( row, cols ) {
-        return cols.map( col => [ row, col ] );
+        return cols.map( col => [ col, row ] );
     };
+
+    /**
+     * Buttons down a column: x is fixed, y varies.
+     * @param {Number} col The x coordinate
+     * @param {Array.<Number>} rows y coordinates to select
+     * @returns {Array.<Array.<Number>>} [x,y] pairs
+     */
     const asCol = function ( col, rows ) {
-        return rows.map( row => [ row, col ] );
+        return rows.map( row => [ col, row ] );
     };
 
     /**
@@ -101,9 +114,9 @@
         let mod = (modifier || '').toLowerCase(),
             nr = Number( mod[ 1 ] );
         if ( mod === 'sc' ) {
-            return { row: true, nr: 8 };
-        } else if ( mod === 'am' ) {
             return { row: false, nr: 8 };
+        } else if ( mod === 'am' ) {
+            return { row: true, nr: 8 };
         }
         if ( !isNaN( nr ) ) {
             if ( mod[ 0 ] === 'r' ) {
@@ -598,11 +611,14 @@
          * and any other character is ignored; for example: 'x..xx' or 'X  XX'.
          */
         fromPattern( pattern ) {
-            if ( pattern instanceof Array ) {
-                return decodeStrings( pattern );
-            }
-            return decodeString( pattern )
-                .map( xy => Buttons.byXy( xy[ 0 ], xy[ 1 ] ) );
+            let coords = pattern instanceof Array
+                ? decodeStrings( pattern )
+                : decodeString( pattern );
+
+            return coords
+                .map( xy => Buttons.byXy( xy[ 0 ], xy[ 1 ] ) )
+                // 'scx' and the like can address (8,8), which has no button.
+                .filter( button => button !== undefined );
         }
 
         /**

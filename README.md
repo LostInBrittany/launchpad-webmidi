@@ -284,24 +284,16 @@ event and its array-like payload.
 
 ## Known limitations
 
-One defect remains in the current release, confirmed by running the code. It is
-documented here rather than quietly omitted, and flagged again at the relevant
-place in [the API reference](docs/API.md).
+None outstanding. Every defect documented in 1.2.x was fixed in 1.3.0 and
+2.0.0 – see the [changelog](CHANGELOG.md).
 
-- **`fromPattern()` mixes up rows and columns.** `fromPattern('r4:xxx')` yields
-  column 4 rather than row 4, and `cN` likewise yields a row. Scene (`sc`) and
-  Automap (`am`) patterns decode correctly. It also returns a different shape
-  for a single string than for an array of strings. The fix changes public
-  behaviour, so it is scheduled for 2.0.0 –
-  [#15](https://github.com/LostInBrittany/launchpad-webmidi/issues/15),
-  [#16](https://github.com/LostInBrittany/launchpad-webmidi/issues/16). Use
-  [`fromMap()`](docs/API.md#frommapmap) in the meantime.
+Two hardware constraints are worth knowing, since they look like bugs:
 
-Everything else previously listed here was fixed in 1.3.0: `pad.off` now turns
-LEDs off, double buffering and flashing work, the message handler no longer
-throws on unmapped coordinates, `connect()` names a missing device, the library
-is quiet by default, and the package declares itself correctly for npm. See the
-[changelog](CHANGELOG.md).
+- **Yellow has only one brightness.** Its MIDI code hard-codes the red/green
+  pair that reads as yellow, leaving no room to encode a level.
+- **There is no button at `(8, 8)`.** The top-right corner, where the Automap
+  row would meet the Scene column, does not exist on the device. It is ignored
+  wherever it can be addressed.
 
 ## Changelog
 

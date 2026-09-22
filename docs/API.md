@@ -3,10 +3,8 @@
 Complete reference for `launchpad-webmidi`. For installation, browser support
 and a gentler introduction, see the [README](../README.md).
 
-Methods marked **⚠️ Broken** do not work in the current release. Each one names
-the defect and, where there is one, a workaround. Only
-[`fromPattern()`](#frompatternpattern) carries that mark today; everything else
-previously flagged was fixed in 1.3.0.
+Every method documented here works. The defects listed in earlier releases were
+fixed in 1.3.0 and 2.0.0; see the [changelog](../CHANGELOG.md).
 
 ## Contents
 
@@ -230,32 +228,41 @@ The 81st character maps to `(8, 8)`, which has no button; marking it yields an
 
 ### `fromPattern(pattern)`
 
-> **⚠️ Broken – returns transposed coordinates.** Use
-> [`fromMap()`](#frommapmap) instead.
-
-Intended to convert a compact row/column description into coordinates.
+Converts a compact row or column description into coordinates.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
 | `pattern` | `String \| Array<String>` | `'mod:pattern'`, or an array of them |
 
+**Returns** `Array<[x, y]>`
+
 The modifier `mod` is one of `rN` (row N), `cN` (column N), `am` (Automap) or
 `sc` (Scene). In `pattern`, `x` or `X` selects a button and any other character
-is ignored – `'r4:x..xx'`.
+is ignored.
 
-Two defects make it unusable as it stands:
+```js
+pad.col(pad.red, pad.fromPattern('r0:xxxxxxxx'));   // the top grid row
+pad.col(pad.green, pad.fromPattern('c0:xxxxxxxx')); // the leftmost column
+pad.col(pad.amber, pad.fromPattern('sc:x..x'));     // two scene buttons
+pad.col(pad.yellow, pad.fromPattern('am:xx'));      // two automap buttons
+```
 
-1. **`rN` and `cN` are swapped.** `fromPattern('r4:xxx')` returns column 4, and
-   `cN` returns a row. Scene (`sc`) and Automap (`am`) patterns decode
-   correctly – the `row` flag and the `asRow`/`asCol` naming are each inverted,
-   and the two cancel out only for those two modifiers.
-   ([#15](https://github.com/LostInBrittany/launchpad-webmidi/issues/15))
-2. **Inconsistent return types.** A single string returns resolved button
-   entries; an array of strings returns raw pairs that never went through the
-   coordinate lookup.
-   ([#16](https://github.com/LostInBrittany/launchpad-webmidi/issues/16))
+An array merges several patterns and removes duplicates:
 
-Both fixes change public behaviour, so they are scheduled for 2.0.0.
+```js
+pad.fromPattern(['r0:xx', 'c0:xx']);   // (0,0) (1,0) (0,1)
+```
+
+The first character of the pattern is the position-8 overflow, so `'r2x'`
+selects `(8, 2)` rather than `(0, 2)`. Separating the modifier from the pattern
+with any ignored character – `:` by convention – avoids the surprise.
+
+An unrecognised modifier selects nothing, and the non-existent `(8, 8)` corner
+is dropped from the result.
+
+> **Changed in 2.0.0** – `rN` previously returned a column and `cN` a row, and
+> the array form returned raw pairs rather than resolved buttons. `sc` and `am`
+> are unaffected.
 
 ### `brightness(brightness)`
 
