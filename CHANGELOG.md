@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   library is now documented on its own terms.
 - Upgraded Rollup from 4.35.0 to 4.63.4. Bundle output is byte-identical.
 
+### Security
+
+- The Rollup upgrade resolves a high-severity advisory affecting
+  `rollup >= 4.0.0, < 4.59.0`. Rollup is a dev dependency, so the published
+  package was never affected, but anyone building from source was.
+
 ### Notes
 
 No library code changed in this release, so the published behaviour of 1.2.0 is
