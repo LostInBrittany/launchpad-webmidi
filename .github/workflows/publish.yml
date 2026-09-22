@@ -1,0 +1,101 @@
+name: Publish to npm
+
+# Publishing is deliberate: it happens when a GitHub release is published,
+# never on a plain tag push.
+on:
+  release:
+    types: [published]
+  # Manual trigger for checking the publishing setup without cutting a release.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Skip the actual publish, only report the environment'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write # required for npm trusted publishing and provenance
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Deliberately no `registry-url`: it makes setup-node write an .npmrc
+      # containing `_authToken=${NODE_AUTH_TOKEN}`, and with no token supplied
+      # that expands to a placeholder. npm then authenticates with the bogus
+      # token instead of exchanging the OIDC credential, and publishing fails
+      # with a 404. Trusted publishing needs no .npmrc at all.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      # Trusted publishing needs a recent npm; the one bundled with Node may lag.
+      - name: Use an npm that supports trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Report the publishing environment
+        run: |
+          echo "node: $(node --version)"
+          echo "npm:  $(npm --version)"
+          # Presence only - never print the token itself.
+          present() { if [ -n "$1" ]; then echo present; else echo MISSING; fi; }
+          echo "OIDC request URL: $(present "$ACTIONS_ID_TOKEN_REQUEST_URL")"
+          echo "OIDC token:       $(present "$ACTIONS_ID_TOKEN_REQUEST_TOKEN")"
+          echo "user .npmrc:      $(test -f "$NPM_CONFIG_USERCONFIG" && echo "$NPM_CONFIG_USERCONFIG" || echo none)"
+          echo "home .npmrc:      $(test -f ~/.npmrc && echo present || echo none)"
+
+      # Unlike a dependency-free plugin, this package needs its devDependency
+      # (rollup) to build. `npm ci` installs exactly what the lockfile pins.
+      - name: Install
+        run: npm ci
+
+      - run: npm test
+
+      # dist/ is committed, so it can drift from the source it claims to build
+      # from. Rebuilding and diffing catches a release cut from a stale bundle.
+      - name: Check the committed bundles match a fresh build
+        run: |
+          npm run build
+          if ! git diff --quiet -- dist; then
+            echo "dist/ is out of date with the source. Run 'npm run build' and commit the result." >&2
+            git diff --stat -- dist >&2
+            exit 1
+          fi
+          echo "dist/ is in sync"
+
+      # Only meaningful for a release: on a manual run GITHUB_REF_NAME is the
+      # branch. npm refuses to overwrite an existing version regardless.
+      - name: Check the release tag matches package.json
+        if: github.event_name == 'release'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "Release tag ${GITHUB_REF_NAME} does not match package.json version ${pkg}" >&2
+            exit 1
+          fi
+          echo "Publishing ${pkg}"
+
+      # No token: the workflow authenticates to npm over OIDC, which also
+      # attaches provenance linking the tarball to this commit and run.
+      #
+      # --ignore-scripts skips prepublishOnly, which would repeat the build and
+      # test steps above. They have already run, and run with better reporting.
+      - name: Publish
+        if: github.event_name == 'release' || inputs.dry_run == false
+        run: npm publish --provenance --access public --ignore-scripts --loglevel verbose
+
+      # Shows whether npm attempted the OIDC exchange at all, and what the
+      # registry answered. Filtered rather than dumped wholesale.
+      - name: Report what npm attempted
+        if: failure()
+        run: |
+          echo "registry: $(npm config get registry)"
+          for f in ~/.npm/_logs/*.log; do
+            echo "=== $f ==="
+            grep -iE 'oidc|trusted|provenance|id-token|audience|http fetch|ENEEDAUTH|401|403' "$f" | head -40
+          done
