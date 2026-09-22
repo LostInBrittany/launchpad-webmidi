@@ -6,6 +6,7 @@
   "main": "dist/launchpad-webmidi.umd.js",
   "module": "dist/launchpad-webmidi.es.js",
   "scripts": {
+    "test": "node --test spec/",
     "build": "rollup -c"
   },
   "repository": "git@github.com:LostInBrittany/launchpad-webmidi.git",
