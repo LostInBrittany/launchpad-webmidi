@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  # Weekly, so a new Node release breaking the test runner surfaces on its own
+  # rather than at the moment someone tries to cut a release.
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is the floor this suite is verified against, 22 and 24 are the LTS
+        # lines, 26 is Current. 24 matters most: it is what publish.yml uses.
+        #
+        # The spread is not decoration. `node --test spec/` worked on 20 and 26
+        # but failed on 22 and 24, so testing a single version would have missed
+        # it - and did, until a release failed.
+        node: ['20', '22', '24', '26']
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+
+      # rollup is the only dependency, and only the build needs it, but `npm ci`
+      # installs exactly what the lockfile pins rather than re-resolving.
+      - run: npm ci
+
+      - run: npm test
+
+  bundles:
+    name: Bundles are in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - run: npm ci
+
+      # dist/ is committed, so it can drift from the source it claims to build
+      # from. publish.yml checks this too, but catching it here means the drift
+      # is found on the pull request rather than halfway through a release.
+      - name: Rebuild and compare
+        run: |
+          npm run build
+          if ! git diff --quiet -- dist; then
+            echo "dist/ is out of date with the source. Run 'npm run build' and commit the result." >&2
+            git diff --stat -- dist >&2
+            exit 1
+          fi
+          echo "dist/ is in sync"
+
+      # The examples are plain HTML loading built bundles by relative path. A
+      # renamed or dropped bundle would break them silently.
+      - name: Examples reference bundles that exist
+        run: |
+          rc=0
+          for ref in $(grep -ho "\.\./dist/[A-Za-z0-9.-]*" examples/*.html | sort -u); do
+            file="${ref#../}"
+            if [ -f "$file" ]; then
+              echo "ok      $ref"
+            else
+              echo "MISSING $ref" >&2
+              rc=1
+            fi
+          done
+          exit $rc
+
+  package:
+    name: Package contents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - run: npm ci
+      - run: npm run build
+
+      # Both entry points resolve, against a real install of the real tarball.
+      # This is what caught the "type": "module" defect that made require()
+      # impossible for the whole 1.2.x line.
+      - name: Install the packed tarball and load it both ways
+        run: |
+          npm pack --pack-destination /tmp
+          mkdir -p /tmp/consumer && cd /tmp/consumer
+          npm init -y >/dev/null
+          npm install /tmp/launchpad-webmidi-*.tgz
+          node -e "
+            const L = require('launchpad-webmidi');
+            if (typeof L !== 'function') throw new Error('require() did not yield the class');
+            console.log('require() ok');
+          "
+          node --input-type=module -e "
+            const { default: L } = await import('launchpad-webmidi');
+            if (typeof L !== 'function') throw new Error('import did not yield the class');
+            new L();
+            console.log('import ok');
+          "
