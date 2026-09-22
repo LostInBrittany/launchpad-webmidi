@@ -23,7 +23,7 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node --test spec/",
+    "test": "node --test spec/*.test.js",
     "build": "rollup -c",
     "prepublishOnly": "npm run build && npm test"
   },
