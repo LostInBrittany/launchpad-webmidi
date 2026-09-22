@@ -4,7 +4,9 @@ Complete reference for `launchpad-webmidi`. For installation, browser support
 and a gentler introduction, see the [README](../README.md).
 
 Methods marked **⚠️ Broken** do not work in the current release. Each one names
-the defect and, where there is one, a workaround.
+the defect and, where there is one, a workaround. Only
+[`fromPattern()`](#frompatternpattern) carries that mark today; everything else
+previously flagged was fixed in 1.3.0.
 
 ## Contents
 
@@ -79,9 +81,8 @@ window.addEventListener('connect', e => console.log(e.detail));
 Port matching is by name only and there is no way to select a specific device,
 so with two Launchpads connected you get whichever the browser lists first.
 
-> **Note** – when no Launchpad is attached, the rejection is a `TypeError`
-> mentioning `onmidimessage` rather than a clear "device not found". Treat any
-> rejection as "no usable device".
+When no matching port is found, the promise rejects with
+`No Launchpad found among the available MIDI ports`.
 
 ### `reset(brightness)`
 
@@ -125,18 +126,13 @@ pad.on('key', k => pad.col(pad.red, k));
 
 Coordinates outside the grid are ignored and resolve to `false`.
 
-> **⚠️ Broken – `pad.off` does not turn LEDs off.** The colour is resolved with
-> `color.code || color`, and `pad.off` has the perfectly valid code `0`, which
-> is falsy. The `Color` *object* is then sent as a MIDI data byte and
-> `MIDIOutput.send()` throws a `TypeError`. The same applies to any
-> zero-brightness colour such as `pad.red.off` or `pad.green.level(0)`.
->
-> **Workaround:** pass the numeric code directly.
->
-> ```js
-> pad.col(0, [0, 0]);        // works
-> pad.col(pad.off, [0, 0]);  // throws
-> ```
+Switching an LED off works with either form:
+
+```js
+pad.col(pad.off, [0, 0]);
+pad.col(pad.red.off, [0, 0]);
+pad.col(0, [0, 0]);
+```
 
 ### `setColors(buttonsWithColor)`
 
@@ -156,9 +152,6 @@ pad.setColors([
 ]);
 ```
 
-> **⚠️** Subject to the same zero-code defect as [`col()`](#colcolor-buttons).
-> Use `0` rather than `pad.off`.
-
 ### `setSingleButtonColor(xy, color)`
 
 The synchronous single-button counterpart of `col()`.
@@ -173,8 +166,6 @@ The synchronous single-button counterpart of `col()`.
 ```js
 pad.setSingleButtonColor([3, 4], pad.green);
 ```
-
-> **⚠️** Same zero-code defect as [`col()`](#colcolor-buttons).
 
 ### `isPressed(button)`
 
@@ -254,14 +245,17 @@ is ignored – `'r4:x..xx'`.
 
 Two defects make it unusable as it stands:
 
-1. **Axes are swapped.** Row/column pairs are built as `[y, x]` but read back as
-   `[x, y]`, so `fromPattern('r4:xxx')` returns column 4 rather than row 4.
+1. **`rN` and `cN` are swapped.** `fromPattern('r4:xxx')` returns column 4, and
+   `cN` returns a row. Scene (`sc`) and Automap (`am`) patterns decode
+   correctly – the `row` flag and the `asRow`/`asCol` naming are each inverted,
+   and the two cancel out only for those two modifiers.
+   ([#15](https://github.com/LostInBrittany/launchpad-webmidi/issues/15))
 2. **Inconsistent return types.** A single string returns resolved button
-   entries; an array of strings returns raw `[row, col]` pairs that never went
-   through the coordinate lookup.
+   entries; an array of strings returns raw pairs that never went through the
+   coordinate lookup.
+   ([#16](https://github.com/LostInBrittany/launchpad-webmidi/issues/16))
 
-An invalid modifier also fails to produce an empty result, because the internal
-check tests a misspelled `err` property against a returned `error` property.
+Both fixes change public behaviour, so they are scheduled for 2.0.0.
 
 ### `brightness(brightness)`
 
@@ -313,24 +307,28 @@ Only valid after [`connect()`](#connect) has resolved.
 
 ### Double buffering
 
-> **⚠️ Broken – every member below throws.** The Launchpad has two LED buffers,
-> letting you compose a frame off-screen and swap it in, or alternate the two to
-> flash. None of it works in this release: a helper function named `or` was lost
-> during the port from `launchpad-mini`, and all four members reference it, so
-> each throws `ReferenceError: or is not defined`.
->
-> There is no workaround short of [`sendRaw()`](#sendrawdata) with hand-built
-> buffer commands.
+The Launchpad has two LED buffers, letting you compose a frame off-screen and
+swap it in, or alternate the two to flash.
 
-| Member | Intended behaviour |
+| Member | Behaviour |
 | --- | --- |
 | `setBuffers({ write, display, copyToDisplay, flash })` | Configure both buffers at once |
 | `writeBuffer` | Get, or set, the buffer LED writes go to (`0` or `1`) |
 | `displayBuffer` | Get, or set, the buffer shown on the device. Setting it also disables flashing |
 | `flash` | Set to `true` to alternate the display buffer automatically |
 
-The getters `writeBuffer` and `displayBuffer` return the cached value and are
-safe; only the setters and `setBuffers()` throw.
+```js
+pad.writeBuffer = 1;        // draw into the hidden buffer
+pad.col(pad.red, [0, 0]);
+pad.displayBuffer = 1;      // swap it in
+
+pad.flash = true;           // or let the device alternate them
+```
+
+Both buffers default to 0.
+
+> **Note** – these members were broken in every release up to 1.2.0, throwing
+> `ReferenceError: or is not defined`. Fixed in 1.3.0.
 
 ## Events
 
@@ -378,7 +376,7 @@ Available as properties on the instance:
 | `pad.green` | Green only |
 | `pad.amber` | Red and green at equal levels |
 | `pad.yellow` | A fixed red/green ratio. Full brightness only |
-| `pad.off` | LED off. **See the [`col()` defect](#colcolor-buttons)** |
+| `pad.off` | LED off |
 
 All are full brightness by default.
 
@@ -405,8 +403,7 @@ limitation, not an oversight.
 ### Buffer modifiers
 
 Two modifiers say what should happen in the *other* LED buffer. They pair with
-[double buffering](#double-buffering), so they are only useful once that is
-fixed – but they encode correctly today.
+[double buffering](#double-buffering).
 
 | Modifier | Effect on the other buffer |
 | --- | --- |
@@ -443,11 +440,10 @@ Resolved codes for the predefined colours, without modifiers:
 | `off` | 0 | 0 | 0 | 0 |
 
 `.clear` adds 8 and `.copy` adds 4. You can pass any of these numbers to
-[`col()`](#colcolor-buttons) directly instead of a `Color` – which is exactly
-the workaround for turning an LED off:
+[`col()`](#colcolor-buttons) directly instead of a `Color`:
 
 ```js
-pad.col(0, [0, 0]);
+pad.col(0, [0, 0]);    // same as pad.col(pad.off, [0, 0])
 ```
 
 ## Coordinates

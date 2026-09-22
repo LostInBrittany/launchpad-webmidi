@@ -4,6 +4,23 @@ import * as buttons from './lib/buttons.js';
 import * as colors from './lib/colors.js';
 
 
+/**
+ * Coalesce an optional flag with a fallback, as a boolean.
+ * @param {*} test Value to use when it is defined
+ * @param {*} alternative Fallback when it is not
+ * @returns {Boolean}
+ */
+const or = ( test, alternative ) => test === undefined ? !!alternative : !!test;
+
+/**
+ * Resolve a colour to its MIDI byte. A Color code of 0 is valid (LED off),
+ * so this cannot test for falsiness.
+ * @param {Color|Number} color
+ * @returns {Number}
+ */
+const colorCode = ( color ) => color && color.code !== undefined ? color.code : color;
+
+
 class Observable {
     constructor() {
         this.observers = {};
@@ -95,7 +112,11 @@ export default class Launchpad extends Observable {
                             'output': this.extractLaunchpadIO(midiAccess.outputs.values())
                         }
                     })
-                    .then((io) => {                        
+                    .then((io) => {
+                        if (!io.input || !io.output) {
+                            throw new Error(
+                                `No Launchpad found among the available MIDI ports`);
+                        }
                         return new MidiAdapter(io.input, io.output);
                     })
                     .then((midiAdapter) => {
@@ -103,7 +124,6 @@ export default class Launchpad extends Observable {
                         this.midiOut = midiAdapter.output;
                         window.dispatchEvent(
                             new CustomEvent('connect', { detail: 'Launchpad connected' }));
-                        console.log(`[Launchpad] connect() - Connected`,this.midiIn, this.midiOut);
                         this.midiIn.onmidimessage = (data) => this._processMessage(data);
                         res();
                     })
@@ -161,7 +181,7 @@ export default class Launchpad extends Observable {
         } else {
             let b = this._button( buttons );
             if ( b ) {
-                this.sendRaw( [ b.cmd, b.key, color.code || color ] );
+                this.sendRaw( [ b.cmd, b.key, colorCode( color ) ] );
             }
             return Promise.resolve( !!b );
         }
@@ -180,7 +200,7 @@ export default class Launchpad extends Observable {
     setSingleButtonColor( xy, color ) {
         let b = this._button( xy );
         if ( b ) {
-            this.sendRaw( [ b.cmd, b.key, color.code || color ] );
+            this.sendRaw( [ b.cmd, b.key, colorCode( color ) ] );
         }
         return !!b;
     }
@@ -338,12 +358,16 @@ export default class Launchpad extends Observable {
             pressed = message[ 2 ] > 0;
 
         } else {
-            console.log( `Unknown message: ${message} ` );
+            // Not a message this device produces; nothing to report.
             return;
         }
 
-
         let button = this._button( [ x, y ] );
+        if ( !button ) {
+            // (8,8) has no button on the hardware, so it has no entry here.
+            return;
+        }
+
         button.pressed = pressed;
         this.emit( 'key', {
             x: x, y: y, pressed: pressed, id: button.id,
@@ -362,43 +386,3 @@ class MidiAdapter {
         this.output = output;
     }
 }
-
-class MidiAdapterFactory {
-    constructor(name) {
-        this.name = name;
-    }
-
-    connect() {
-        return (res,rej) => {
-            if (!navigator.requestMIDIAccess){
-                rej(`Browser doesn't seem to support Web MIDI API`);
-            } else {
-                navigator.requestMIDIAccess()
-                    .then((midiAccess) => {
-                        return {
-                            'input': this.extractLaunchpadIO(midiAccess.inputs.values()),
-                            'output': this.extractLaunchpadIO(midiAccess.outputs.values())
-                        }
-                    })
-                    .then((io) => {                        
-                        res(new MidiAdapter(io.input, io.output));
-                    })
-                    .catch(rej);
-            }
-        }
-    }
-
-    extractLaunchpadIO(items) {
-        var item = items.next();
-        while (!item.done) {
-            if (item.value.name.indexOf(this.name) >= 0) {
-                return item.value;
-            }
-            item = items.next();
-        }
-        return undefined;
-    }
-
-}
-
-

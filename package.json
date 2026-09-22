@@ -1,15 +1,51 @@
 {
   "name": "launchpad-webmidi",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Interacting with a Novation Launchpad from your browser with the web MIDI API",
   "type": "module",
-  "main": "dist/launchpad-webmidi.umd.js",
+  "main": "dist/launchpad-webmidi.umd.cjs",
   "module": "dist/launchpad-webmidi.es.js",
+  "browser": "dist/launchpad-webmidi.umd.js",
+  "exports": {
+    ".": {
+      "import": "./dist/launchpad-webmidi.es.js",
+      "require": "./dist/launchpad-webmidi.umd.cjs",
+      "default": "./dist/launchpad-webmidi.es.js"
+    },
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "CHANGELOG.md",
+    "LICENCE.md",
+    "README.md"
+  ],
   "scripts": {
     "test": "node --test spec/",
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "prepublishOnly": "npm run build && npm test"
   },
-  "repository": "git@github.com:LostInBrittany/launchpad-webmidi.git",
+  "keywords": [
+    "launchpad",
+    "launchpad-mini",
+    "novation",
+    "midi",
+    "webmidi",
+    "web-midi-api",
+    "browser",
+    "music",
+    "controller"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LostInBrittany/launchpad-webmidi.git"
+  },
+  "homepage": "https://github.com/LostInBrittany/launchpad-webmidi#readme",
+  "bugs": {
+    "url": "https://github.com/LostInBrittany/launchpad-webmidi/issues"
+  },
   "author": "Horacio Gonzalez <horacio.gonzalez@gmail.com>",
   "license": "MIT",
   "devDependencies": {

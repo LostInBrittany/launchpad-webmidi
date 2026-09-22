@@ -115,9 +115,24 @@ describe('decodeStrings', () => {
     });
 });
 
+describe('invalid modifiers', () => {
+    test('decode to nothing', () => {
+        assert.deepEqual(buttons.getDecoder('zz')([1, 2]), []);
+        assert.deepEqual(buttons.decodeString('zz:xx'), []);
+    });
+
+    test('do not leak undefined coordinates', () => {
+        for (const pattern of ['zz:xx', 'r:xx', '::xx', '']) {
+            for (const pair of buttons.decodeString(pattern)) {
+                assert.ok(pair.every(Number.isInteger), `${pattern} produced ${pair}`);
+            }
+        }
+    });
+});
+
 // ---------------------------------------------------------------------------
 // Known defects. These assert the behaviour the library *should* have.
-// See CHANGELOG.md and the Known limitations section of the README.
+// Scheduled for 2.0.0, because the fix changes public behaviour. See #15.
 // ---------------------------------------------------------------------------
 
 describe('known defects', () => {
@@ -125,23 +140,16 @@ describe('known defects', () => {
     // correctly. But rN and cN come out swapped: the `row` flag and the
     // asRow/asCol naming are each inverted, and the two cancel out only for
     // 'sc' and 'am'.
-    test('rN selects a row', { todo: 'rN currently returns a column' }, () => {
+    test('rN selects a row', { todo: 'rN currently returns a column; see issue #15' }, () => {
         const ys = new Set(buttons.decodeString('r4:x..x').map(([, y]) => y));
         assert.equal(ys.size, 1, 'every coordinate should share one y');
         assert.equal([...ys][0], 4, 'and that y should be 4');
     });
 
-    test('cN selects a column', { todo: 'cN currently returns a row' }, () => {
+    test('cN selects a column', { todo: 'cN currently returns a row; see issue #15' }, () => {
         const xs = new Set(buttons.decodeString('c4:x..x').map(([x]) => x));
         assert.equal(xs.size, 1, 'every coordinate should share one x');
         assert.equal([...xs][0], 4, 'and that x should be 4');
     });
 
-    // getDecoder tests `mod.err`, but decodeModifier returns `{ error: true }`.
-    test('an invalid modifier decodes to nothing',
-        { todo: 'getDecoder checks mod.err but decodeModifier sets mod.error' },
-        () => {
-            assert.deepEqual(buttons.getDecoder('zz')([1, 2]), []);
-            assert.deepEqual(buttons.decodeString('zz:xx'), []);
-        });
 });

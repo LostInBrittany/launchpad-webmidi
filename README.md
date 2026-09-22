@@ -233,9 +233,12 @@ pad.col(pad.red.full, [2, 0]);   // same as pad.red
 Colours are immutable – `.low` returns a *new* `Color` rather than modifying the
 original, so `pad.red` is always full-brightness red.
 
-> **⚠️** `pad.off` is currently broken – see
-> [Known limitations](#known-limitations). To switch an LED off, pass the raw
-> code instead: `pad.col(0, [x, y])`.
+Switch an LED off with `pad.off`, or by passing the raw code `0`:
+
+```js
+pad.col(pad.off, [0, 0]);
+pad.col(0, [0, 0]);      // equivalent
+```
 
 See [the Colour model in the API reference](docs/API.md#the-colour-model) for
 double-buffering modifiers, the MIDI encoding, and why yellow only has one
@@ -281,32 +284,24 @@ event and its array-like payload.
 
 ## Known limitations
 
-These are real defects in the current release, confirmed by running the code.
-They are documented here rather than quietly omitted, and each is flagged again
-at the relevant place in [the API reference](docs/API.md).
+One defect remains in the current release, confirmed by running the code. It is
+documented here rather than quietly omitted, and flagged again at the relevant
+place in [the API reference](docs/API.md).
 
-- **`pad.off` does not turn LEDs off.** Colours are resolved with
-  `color.code || color`, and `pad.off` has the valid code `0`, which is falsy –
-  so the `Color` object itself gets sent as a MIDI data byte and
-  `MIDIOutput.send()` throws. Affects `col()`, `setColors()` and
-  `setSingleButtonColor()`, and any zero-brightness colour such as
-  `pad.red.off`. **Workaround:** pass the number directly, `pad.col(0, [x, y])`.
-- **Double buffering and flashing are broken.** `setBuffers()` and the
-  `writeBuffer`, `displayBuffer` and `flash` setters all throw
-  `ReferenceError: or is not defined`. A helper function was lost during the
-  port from `launchpad-mini`.
-- **`fromPattern()` returns transposed coordinates.** `fromPattern('r4:xxx')`
-  yields column 4 rather than row 4, because row/column pairs are built as
-  `[y, x]` but read back as `[x, y]`. It also returns a different shape for a
-  single string than for an array of strings. Use
-  [`fromMap()`](docs/API.md#frommapmap) instead until this is fixed.
-- **An unrecognised MIDI message can throw.** A message resolving to the
-  non-existent button `(8, 8)` causes a `TypeError` inside the message handler.
-- **`connect()` reports a confusing error when no Launchpad is present.** You
-  get a `TypeError` about `onmidimessage` rather than a clear "device not
-  found".
-- **The library logs to the console unconditionally** on connect and on
-  unrecognised MIDI messages.
+- **`fromPattern()` mixes up rows and columns.** `fromPattern('r4:xxx')` yields
+  column 4 rather than row 4, and `cN` likewise yields a row. Scene (`sc`) and
+  Automap (`am`) patterns decode correctly. It also returns a different shape
+  for a single string than for an array of strings. The fix changes public
+  behaviour, so it is scheduled for 2.0.0 –
+  [#15](https://github.com/LostInBrittany/launchpad-webmidi/issues/15),
+  [#16](https://github.com/LostInBrittany/launchpad-webmidi/issues/16). Use
+  [`fromMap()`](docs/API.md#frommapmap) in the meantime.
+
+Everything else previously listed here was fixed in 1.3.0: `pad.off` now turns
+LEDs off, double buffering and flashing work, the message handler no longer
+throws on unmapped coordinates, `connect()` names a missing device, the library
+is quiet by default, and the package declares itself correctly for npm. See the
+[changelog](CHANGELOG.md).
 
 ## Changelog
 

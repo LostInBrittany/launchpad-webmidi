@@ -308,75 +308,150 @@ describe('connect', () => {
     });
 });
 
+
+describe('turning LEDs off', () => {
+    // A Color code of 0 is valid, so colour resolution cannot test falsiness.
+    test('pad.off turns an LED off', async () => {
+        await pad.col(pad.off, [0, 0]);
+        assert.deepEqual(out.last, [0x90, 0, 0]);
+    });
+
+    test('a zero-brightness colour turns an LED off', async () => {
+        await pad.col(pad.red.off, [0, 0]);
+        assert.deepEqual(out.last, [0x90, 0, 0]);
+    });
+
+    test('setSingleButtonColor accepts pad.off', () => {
+        pad.setSingleButtonColor([0, 0], pad.off);
+        assert.deepEqual(out.last, [0x90, 0, 0]);
+    });
+
+    test('setColors accepts pad.off', async () => {
+        await pad.setColors([[0, 0, pad.off], [1, 0, pad.red]]);
+        assert.deepEqual(out.sent, [[0x90, 0, 0], [0x90, 1, 3]]);
+    });
+});
+
+describe('double buffering', () => {
+    test('setBuffers selects the write buffer', () => {
+        pad.setBuffers({ write: 1 });
+        assert.equal(pad.writeBuffer, 1);
+    });
+
+    test('the writeBuffer setter works', () => {
+        pad.writeBuffer = 1;
+        assert.equal(pad.writeBuffer, 1);
+    });
+
+    test('the displayBuffer setter works', () => {
+        pad.displayBuffer = 1;
+        assert.equal(pad.displayBuffer, 1);
+    });
+
+    test('the flash setter sends a buffer command', () => {
+        pad.flash = true;
+        assert.equal(out.last[0], 0xb0);
+        assert.equal(out.last[1], 0x00);
+    });
+
+    test('setting the display buffer disables flashing', () => {
+        pad.flash = true;
+        pad.displayBuffer = 1;
+        // bit 3 (0b001000) carries the flash flag
+        assert.equal(out.last[2] & 0b001000, 0);
+    });
+
+    test('buffers default to 0', () => {
+        assert.equal(pad.writeBuffer, 0);
+        assert.equal(pad.displayBuffer, 0);
+    });
+});
+
+describe('malformed input', () => {
+    test('an unmapped MIDI message does not throw', () => {
+        assert.doesNotThrow(() => input.receive([0x90, 0x88, 127]));
+    });
+
+    test('an unrecognised status byte is ignored', () => {
+        let fired = false;
+        pad.on('key', () => { fired = true; });
+        assert.doesNotThrow(() => input.receive([0xf0, 0x01, 0x02]));
+        assert.equal(fired, false);
+    });
+
+    test('an unmapped message emits no key event', () => {
+        let fired = false;
+        pad.on('key', () => { fired = true; });
+        input.receive([0x90, 0x88, 127]);
+        assert.equal(fired, false);
+    });
+});
+
+describe('connect error reporting', () => {
+    test('names the missing device rather than throwing a TypeError', async () => {
+        const { restore } = withFakeBrowser({ inputs: [], outputs: [] });
+        try {
+            await assert.rejects(
+                () => new Launchpad().connect(),
+                (err) => /launchpad/i.test(String(err.message ?? err))
+            );
+        } finally {
+            restore();
+        }
+    });
+
+    test('rejects when only one of the two ports is found', async () => {
+        const midiIn = new FakeMidiInput('Launchpad Mini');
+        const { restore } = withFakeBrowser({ inputs: [midiIn], outputs: [] });
+        try {
+            await assert.rejects(() => new Launchpad().connect());
+        } finally {
+            restore();
+        }
+    });
+});
+
+describe('quiet by default', () => {
+    test('connecting writes nothing to the console', async () => {
+        const midiIn = new FakeMidiInput('Launchpad Mini');
+        const midiOut = new FakeMidiOutput();
+        midiOut.name = 'Launchpad Mini';
+
+        const original = console.log;
+        const lines = [];
+        console.log = (...args) => lines.push(args);
+
+        const { restore } = withFakeBrowser({ inputs: [midiIn], outputs: [midiOut] });
+        try {
+            await new Launchpad().connect();
+        } finally {
+            restore();
+            console.log = original;
+        }
+        assert.deepEqual(lines, []);
+    });
+
+    test('an unrecognised message writes nothing to the console', () => {
+        const original = console.log;
+        const lines = [];
+        console.log = (...args) => lines.push(args);
+        try {
+            input.receive([0xf0, 0x01, 0x02]);
+        } finally {
+            console.log = original;
+        }
+        assert.deepEqual(lines, []);
+    });
+});
+
 // ---------------------------------------------------------------------------
-// Known defects. These assert the behaviour the library *should* have.
-// See CHANGELOG.md and the Known limitations section of the README.
+// Known defects, scheduled for 2.0.0 because the fixes change public
+// behaviour. See issues #15 and #16.
 // ---------------------------------------------------------------------------
 
 describe('known defects', () => {
-    // `color.code || color` treats the valid code 0 as falsy and falls through
-    // to the Color object, which is then sent as a MIDI data byte.
-    test('pad.off turns an LED off',
-        { todo: 'col() resolves colours with `color.code || color`, and 0 is falsy' },
-        async () => {
-            await pad.col(pad.off, [0, 0]);
-            assert.deepEqual(out.last, [0x90, 0, 0]);
-        });
-
-    test('a zero-brightness colour turns an LED off',
-        { todo: 'same falsy-zero defect as pad.off' },
-        async () => {
-            await pad.col(pad.red.off, [0, 0]);
-            assert.deepEqual(out.last, [0x90, 0, 0]);
-        });
-
-    test('setSingleButtonColor accepts pad.off',
-        { todo: 'same falsy-zero defect as pad.off' },
-        () => {
-            pad.setSingleButtonColor([0, 0], pad.off);
-            assert.deepEqual(out.last, [0x90, 0, 0]);
-        });
-
-    // A helper named `or` was lost in the port from launchpad-mini, and all
-    // four buffer members reference it.
-    test('setBuffers selects the write buffer',
-        { todo: 'setBuffers references an undefined helper `or`' },
-        () => {
-            pad.setBuffers({ write: 1 });
-            assert.equal(pad.writeBuffer, 1);
-        });
-
-    test('the writeBuffer setter works',
-        { todo: 'writeBuffer setter references an undefined helper `or`' },
-        () => {
-            pad.writeBuffer = 1;
-            assert.equal(pad.writeBuffer, 1);
-        });
-
-    test('the displayBuffer setter works',
-        { todo: 'displayBuffer setter references an undefined helper `or`' },
-        () => {
-            pad.displayBuffer = 1;
-            assert.equal(pad.displayBuffer, 1);
-        });
-
-    test('the flash setter works',
-        { todo: 'flash setter references an undefined helper `or`' },
-        () => {
-            pad.flash = true;
-            assert.equal(out.last[0], 0xb0);
-        });
-
-    // _button() returns undefined for (8,8), and the handler dereferences it.
-    test('an unmapped MIDI message does not throw',
-        { todo: '_processMessage dereferences an undefined button for (8,8)' },
-        () => {
-            assert.doesNotThrow(() => input.receive([0x90, 0x88, 127]));
-        });
-
-    // fromPattern composes decodeString with byXy, but the pair order disagrees.
     test('fromPattern selects the requested row',
-        { todo: 'rN decodes to a column; see spec/buttons.test.js' },
+        { todo: 'rN decodes to a column; see issue #15' },
         () => {
             const row = pad.fromPattern('r4:xxx');
             for (const [, y] of row) {
@@ -385,31 +460,15 @@ describe('known defects', () => {
         });
 
     test('fromPattern returns the same shape for a string and an array',
-        { todo: 'the array branch skips the byXy lookup the string branch applies' },
+        { todo: 'the array branch skips the byXy lookup; see issue #16' },
         () => {
-            // Both branches happen to yield the same numbers, so comparing
-            // coordinates proves nothing. The difference is the type: the
-            // string branch resolves through byXy and carries a button id,
-            // the array branch hands back raw pairs.
+            // Both branches yield the same numbers, so comparing coordinates
+            // proves nothing. The difference is the type: the string branch
+            // resolves through byXy and carries a button id.
             const single = pad.fromPattern('r4:xxx');
             const asArray = pad.fromPattern(['r4:xxx']);
 
             assert.equal(typeof single[0].id, 'symbol', 'string branch should resolve buttons');
             assert.equal(typeof asArray[0].id, 'symbol', 'array branch should resolve buttons too');
-        });
-
-    // connect() builds a MidiAdapter from undefined ports, then dereferences it.
-    test('connect reports a missing device clearly',
-        { todo: 'connect() throws a TypeError about onmidimessage instead' },
-        async () => {
-            const { restore } = withFakeBrowser({ inputs: [], outputs: [] });
-            try {
-                await assert.rejects(
-                    () => new Launchpad().connect(),
-                    (err) => /launchpad|not found|no device/i.test(String(err.message ?? err))
-                );
-            } finally {
-                restore();
-            }
         });
 });
