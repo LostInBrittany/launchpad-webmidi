@@ -12,6 +12,6 @@
   "author": "Horacio Gonzalez <horacio.gonzalez@gmail.com>",
   "license": "MIT",
   "devDependencies": {
-    "rollup": "^4.35.0"
+    "rollup": "^4.63.4"
   }
 }
